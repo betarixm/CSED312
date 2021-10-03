@@ -116,11 +116,15 @@ void thread_start (void);
 void thread_tick (void);
 void thread_print_stats (void);
 
+bool compare_thread_awake_tick (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+void thread_sleep (int64_t ticks);
+void thread_awake (int64_t ticks);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
