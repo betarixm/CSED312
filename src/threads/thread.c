@@ -255,6 +255,25 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 }
 
+/* Makes the thread sleep. */
+void
+thread_sleep (int64_t ticks)
+{
+  enum intr_level old_level = intr_disable ();
+  struct thread *t = thread_current ();
+
+  ASSERT (is_thread (t));
+  ASSERT (t != idle_thread);
+
+  t->awake_tick = ticks;
+
+  list_insert_ordered (&sleep_list, &t->elem, compare_thread_awake_tick, 0); 
+
+  thread_block ();
+
+  intr_set_level (old_level);
+}
+
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
