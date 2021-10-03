@@ -308,12 +308,14 @@ thread_awake (int64_t ticks)
 void
 thread_preepmt (void)
 {
+  if (list_empty (&ready_list)) { return; }
+
   struct thread *t = thread_current ();
   struct thread *ready_list_t = list_entry (
     list_front (&ready_list), struct thread, elem
   );
 
-  if (!list_empty (&ready_list) && t->priority < ready_list_t->priority) {
+  if (t->priority < ready_list_t->priority) {
     thread_yield (); 
   }
 }
