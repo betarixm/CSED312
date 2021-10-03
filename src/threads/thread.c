@@ -151,6 +151,15 @@ thread_print_stats (void)
           idle_ticks, kernel_ticks, user_ticks);
 }
 
+/* Comparator to insert into the list in order considering
+   awake_tick. */
+bool 
+compare_thread_awake_tick (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+    return list_entry (a, struct thread, elem)->awake_tick
+      < list_entry (b, struct thread, elem)->awake_tick;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
