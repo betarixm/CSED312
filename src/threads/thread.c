@@ -28,6 +28,9 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/* List of sleep processes. */
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +95,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -145,6 +149,15 @@ thread_print_stats (void)
 {
   printf ("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
           idle_ticks, kernel_ticks, user_ticks);
+}
+
+/* Comparator to insert into the list in order considering
+   awake_tick. */
+bool 
+compare_thread_awake_tick (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+    return list_entry (a, struct thread, elem)->awake_tick
+      < list_entry (b, struct thread, elem)->awake_tick;
 }
 
 /* Creates a new kernel thread named NAME with the given initial
@@ -240,6 +253,42 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+/* Makes the thread sleep. */
+void
+thread_sleep (int64_t ticks)
+{
+  enum intr_level old_level = intr_disable ();
+  struct thread *t = thread_current ();
+
+  ASSERT (is_thread (t));
+  ASSERT (t != idle_thread);
+
+  t->awake_tick = ticks;
+
+  list_insert_ordered (&sleep_list, &t->elem, compare_thread_awake_tick, 0); 
+
+  thread_block ();
+
+  intr_set_level (old_level);
+}
+
+/* Waking up the thread that needs to wake up. */
+void
+thread_awake (int64_t ticks)
+{
+  struct list_elem *elem_t;
+  struct thread *t;
+
+  for (elem_t = list_begin (&sleep_list); elem_t != list_end (&sleep_list);) {
+    t = list_entry (elem_t, struct thread, elem);
+
+    if (t->awake_tick > ticks) { break; }
+
+    elem_t = list_remove (elem_t);
+    thread_unblock (t);
+  }
 }
 
 /* Returns the name of the running thread. */
