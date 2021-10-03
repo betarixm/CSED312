@@ -160,6 +160,15 @@ compare_thread_awake_tick (const struct list_elem *a, const struct list_elem *b,
       < list_entry (b, struct thread, elem)->awake_tick;
 }
 
+/* Comparator to insert into the list in order considering
+   awake_tick. */
+bool 
+compare_thread_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+    return list_entry (a, struct thread, elem)->priority
+      > list_entry (b, struct thread, elem)->priority;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
