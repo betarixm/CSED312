@@ -274,6 +274,23 @@ thread_sleep (int64_t ticks)
   intr_set_level (old_level);
 }
 
+/* Waking up the thread that needs to wake up. */
+void
+thread_awake (int64_t ticks)
+{
+  struct list_elem *elem_t;
+  struct thread *t;
+
+  for (elem_t = list_begin (&sleep_list); elem_t != list_end (&sleep_list);) {
+    t = list_entry (elem_t, struct thread, elem);
+
+    if (t->awake_tick > ticks) { break; }
+
+    elem_t = list_remove (elem_t);
+    thread_unblock (t);
+  }
+}
+
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
