@@ -300,6 +300,21 @@ thread_awake (int64_t ticks)
   }
 }
 
+/* When the priority of the prepared thread is higher than 
+   that of the running thread, switching to the prepared thread. */
+void
+thread_preepmt (void)
+{
+  struct thread *t = thread_current ();
+  struct thread *ready_list_t = list_entry (
+    list_front (&ready_list), struct thread, elem
+  );
+
+  if (!list_empty (&ready_list) && t->priority < ready_list_t->priority) {
+    thread_yield (); 
+  }
+}
+
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
