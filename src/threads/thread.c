@@ -650,6 +650,21 @@ donate_priority (void)
   }
 }
 
+void
+remove_threads_from_donations (struct lock *lock)
+{
+  struct thread *t = thread_current ();
+  struct list_elem *e;
+
+  for (e = list_begin (&t->donations); e != list_end (&t->donations);) {
+    if(list_entry (e, struct thread, donation_elem)->released_lock == lock) {
+      e = list_remove (e);
+    } else {
+      e = list_next (e);
+    }
+  }
+}
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another

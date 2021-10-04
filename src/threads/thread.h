@@ -159,4 +159,6 @@ int thread_get_load_avg (void);
 
 void update_priority (void);
 void donate_priority (void);
+void remove_threads_from_donations (struct lock *lock);
+
 #endif /* threads/thread.h */
