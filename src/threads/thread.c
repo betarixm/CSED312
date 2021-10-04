@@ -637,6 +637,19 @@ update_priority (void)
   t->priority = target_priority;
 }
 
+void
+donate_priority (void)
+{
+  int depth = 0;
+  struct thread *t = thread_current ();
+  
+  for (depth = 0; t->released_lock != NULL && depth < DONATION_DEPTH_MAX; ++depth, t = t->released_lock->holder) {
+    if (t->released_lock->holder->priority < t->priority) {
+      t->released_lock->holder->priority = t->priority;
+    }
+  }
+}
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
