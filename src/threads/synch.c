@@ -258,6 +258,20 @@ struct semaphore_elem
     struct semaphore semaphore;         /* This semaphore. */
   };
 
+int
+sema_waiters_head_thread_priority (struct semaphore *sema)
+{
+  if (list_empty (&(sema->waiters))) { return PRI_MIN - 1; }
+  return list_entry (list_front (&(sema->waiters)), struct thread, elem)->priority;
+}
+
+bool 
+compare_sema_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  return (sema_waiters_head_thread_priority (&(list_entry (a, struct semaphore_elem, elem)->semaphore)))
+    > (sema_waiters_head_thread_priority (&(list_entry (b, struct semaphore_elem, elem)->semaphore)));
+}
+
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
    code to receive the signal and act upon it. */
