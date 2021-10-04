@@ -621,6 +621,22 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+void
+update_priority (void)
+{
+  struct thread *t = thread_current ();
+
+  int target_priority = t->init_priority;
+  int test_priority;
+
+  if (!list_empty (&t->donations)) {
+    test_priority = list_entry (list_max(&t->donations, compare_thread_priority, NULL), struct thread, donation_elem)->priority;
+    target_priority = (test_priority > target_priority) ? test_priority : target_priority;
+  }
+
+  t->priority = target_priority;
+}
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
