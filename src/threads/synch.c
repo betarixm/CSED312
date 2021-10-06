@@ -205,7 +205,7 @@ lock_acquire (struct lock *lock)
 
   if (lock->holder) {
     t->released_lock = lock;
-    list_insert_ordered (&lock->holder->donations, &t->donation_elem, compare_thread_priority, NULL);
+    list_push_back (&lock->holder->donations, &t->donation_elem);
     donate_priority ();
   }
 
