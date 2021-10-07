@@ -160,6 +160,15 @@ compare_thread_awake_tick (const struct list_elem *a, const struct list_elem *b,
       < list_entry (b, struct thread, elem)->awake_tick;
 }
 
+/* Comparator to insert into the list in order considering
+   awake_tick. */
+bool 
+compare_thread_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+    return list_entry (a, struct thread, elem)->priority
+      > list_entry (b, struct thread, elem)->priority;
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -214,6 +223,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  /* Check this thread's priority is higher than current. */
+  thread_preepmt();
+
   return tid;
 }
 
@@ -250,7 +262,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, compare_thread_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -288,6 +300,23 @@ thread_awake (int64_t ticks)
 
     elem_t = list_remove (elem_t);
     thread_unblock (t);
+  }
+}
+
+/* When the priority of the prepared thread is higher than 
+   that of the running thread, switching to the prepared thread. */
+void
+thread_preepmt (void)
+{
+  if (list_empty (&ready_list)) { return; }
+
+  struct thread *t = thread_current ();
+  struct thread *ready_list_t = list_entry (
+    list_front (&ready_list), struct thread, elem
+  );
+
+  if (t->priority < ready_list_t->priority) {
+    thread_yield (); 
   }
 }
 
@@ -357,7 +386,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, compare_thread_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -384,7 +413,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  thread_current ()->init_priority = new_priority;
+
+  update_priority ();
+  thread_preepmt ();
 }
 
 /* Returns the current thread's priority. */
@@ -511,8 +543,12 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->init_priority = priority;
+  t->released_lock = NULL;
   t->magic = THREAD_MAGIC;
 
+  list_init (&t->donations);
+  
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -589,6 +625,50 @@ thread_schedule_tail (struct thread *prev)
       ASSERT (prev != cur);
       palloc_free_page (prev);
     }
+}
+
+void
+update_priority (void)
+{
+  struct thread *t = thread_current ();
+
+  int target_priority = t->init_priority;
+  int test_priority;
+
+  if (!list_empty (&t->donations)) {
+    test_priority = list_entry (list_max(&t->donations, compare_thread_priority, NULL), struct thread, donation_elem)->priority;
+    target_priority = (test_priority > target_priority) ? test_priority : target_priority;
+  }
+
+  t->priority = target_priority;
+}
+
+void
+donate_priority (void)
+{
+  int depth = 0;
+  struct thread *t = thread_current ();
+  
+  for (depth = 0; t->released_lock != NULL && depth < DONATION_DEPTH_MAX; ++depth, t = t->released_lock->holder) {
+    if (t->released_lock->holder->priority < t->priority) {
+      t->released_lock->holder->priority = t->priority;
+    }
+  }
+}
+
+void
+remove_threads_from_donations (struct lock *lock)
+{
+  struct thread *t = thread_current ();
+  struct list_elem *e;
+
+  for (e = list_begin (&t->donations); e != list_end (&t->donations);) {
+    if(list_entry (e, struct thread, donation_elem)->released_lock == lock) {
+      e = list_remove (e);
+    } else {
+      e = list_next (e);
+    }
+  }
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
