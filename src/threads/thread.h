@@ -106,6 +106,10 @@ struct thread
     struct list donations;
     struct list_elem donation_elem;
 
+    /* MLFQS properties. */
+    int nice;
+    int recent_cpu;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
