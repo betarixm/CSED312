@@ -99,8 +99,6 @@ thread_init (void)
   list_init (&all_list);
   list_init (&sleep_list);
 
-  load_avg = 0;
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -117,6 +115,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+  load_avg = 0;
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -438,20 +437,9 @@ thread_get_priority (void)
 void
 mlfqs_priority (struct thread *t)
 {
-  int priority = fp_to_int_round (sub_fp (int_to_fp (PRI_MAX), (sub_fp_int (div_fp_int (t->recent_cpu, 4), t->nice * 2))));
-
-  if (priority < PRI_MIN)
-  {
-    t->priority = PRI_MIN;
-  }
-  else if (priority > PRI_MAX)
-  {
-    t->priority = PRI_MAX;
-  }
-  else
-  {
-    t->priority = priority;
-  }
+  if (t == idle_thread) 
+    return ;
+  t->priority = fp_to_int (add_fp_int (div_fp_int (t->recent_cpu, -4), PRI_MAX - t->nice * 2));
 }
 
 /* Calculate MLFQS recent_cpu value. 
@@ -486,16 +474,26 @@ incr_recent_cpu (void)
 
 /* Recalculate and update all threads' MLFQS priority and recent_cpu. */
 void 
-update_mlfqs (void)
+mlfqs_update_recent_cpu (void)
 {
   struct list_elem *e;
 
-  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e))
-    {
-      struct thread *t = list_entry (e, struct thread, allelem);
-      mlfqs_recent_cpu (t);
-      mlfqs_priority (t);
-    }
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+    struct thread *t = list_entry (e, struct thread, allelem);
+    mlfqs_recent_cpu (t);
+  }
+}
+
+/* Recalculate and update all threads' MLFQS priority and recent_cpu. */
+void 
+mlfqs_update_priority (void)
+{
+  struct list_elem *e;
+
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+    struct thread *t = list_entry (e, struct thread, allelem);
+    mlfqs_priority (t);
+  }
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -505,8 +503,10 @@ thread_set_nice (int nice UNUSED)
     enum intr_level old_level;
     old_level = intr_disable();
     
-    thread_current ()->nice = nice;
-    
+    struct thread *t = thread_current();
+    t->nice = nice;
+    mlfqs_priority (t);
+    thread_preepmt ();
     intr_set_level(old_level);
 }
 
@@ -642,16 +642,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->released_lock = NULL;
   t->magic = THREAD_MAGIC;
   
-  if (strcmp (name, "main")) 
-  {
-    t->recent_cpu = thread_current ()->recent_cpu;
-    t->nice = thread_current ()->nice;
-  } 
-  else 
-  {
-    t->recent_cpu = 0;
-    t->nice = 0;
-  }
+  t->recent_cpu = 0;
+  t->nice = 0;
   
   list_init (&t->donations);
   
