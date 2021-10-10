@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "fixed_point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -61,6 +62,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+int load_avg;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -96,6 +98,8 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
   list_init (&sleep_list);
+
+  load_avg = 0;
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -426,6 +430,19 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+/* Calculate MLFQS load_avg value.
+   load_avg = (59 / 60) * load_avg + (1 / 60) * ready_threads */
+void
+mlfqs_load_avg (void)
+{
+  int ready_threads = list_size (&ready_list);
+  if (thread_current () != idle_thread) 
+    ready_threads++;
+    
+  load_avg = add_fp (mult_fp (div_fp_int (int_to_fp (59), 60), load_avg), 
+              mult_fp_int (div_fp_int (int_to_fp (1), 60), ready_threads));
+}
+
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED) 
@@ -445,8 +462,15 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  enum intr_level old_level;
+  ASSERT (!intr_context ());
+  old_level = intr_disable ();
+
+  int ret_load_avg = fp_to_int_round (mult_fp_int (load_avg, 100));
+
+  intr_set_level (old_level);
+
+  return ret_load_avg;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
