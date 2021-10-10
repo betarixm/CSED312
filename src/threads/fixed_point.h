@@ -34,13 +34,13 @@ int_to_fp (int n)
 int
 fp_to_int (int x)
 {
-  return x / f;
+  return x / F;
 }
 
 int 
 fp_to_int_round (int x)
 {
-  return x >= 0 ? (x + F / 2) / F : (x - f / 2) / F;
+  return x >= 0 ? (x + F / 2) / F : (x - F / 2) / F;
 }
 
 int 
@@ -70,7 +70,7 @@ sub_fp_int (int x, int n)
 int
 mult_fp (int x, int y)
 {
-  return x * y / F;
+  return ((int64_t)x) * y / F;
 }
 
 int
@@ -82,7 +82,7 @@ mult_fp_int (int x, int n)
 int
 div_fp (int x, int y)
 {
-  return x / y * F;
+  return ((int64_t)x) * F / y;
 }
 
 int
