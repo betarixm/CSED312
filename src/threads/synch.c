@@ -203,10 +203,13 @@ lock_acquire (struct lock *lock)
 
   struct thread *t = thread_current ();
 
-  if (lock->holder) {
-    t->released_lock = lock;
-    list_push_back (&lock->holder->donations, &t->donation_elem);
-    donate_priority ();
+  if (!thread_mlfqs) 
+  {
+    if (lock->holder) {
+      t->released_lock = lock;
+      list_push_back (&lock->holder->donations, &t->donation_elem);
+      donate_priority ();
+    }
   }
 
   sema_down (&lock->semaphore);
@@ -248,9 +251,12 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
 
-  remove_threads_from_donations (lock);
-  update_priority ();
-
+  if (!thread_mlfqs) 
+  {
+    remove_threads_from_donations (lock);
+    update_priority ();
+  }
+  
   sema_up (&lock->semaphore);
 }
 

@@ -106,6 +106,9 @@ struct thread
     struct list donations;
     struct list_elem donation_elem;
 
+    int nice;
+    int recent_cpu;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -152,7 +155,11 @@ void thread_foreach (thread_action_func *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
+void mlfqs_priority (struct thread *t);
+void mlfqs_recent_cpu (struct thread *t);
 void mlfqs_load_avg (void);
+void incr_recent_cpu (void);
+void update_mlfqs (void);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
