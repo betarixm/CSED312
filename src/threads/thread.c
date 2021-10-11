@@ -437,8 +437,18 @@ thread_get_priority (void)
 void
 mlfqs_priority (struct thread *t)
 {
-  if (t != idle_thread) 
-    t->priority = fp_to_int_round (add_fp_int (div_fp_int (t->recent_cpu, -4), PRI_MAX - t->nice * 2));
+  if (t == idle_thread)
+    return; 
+  
+  int priority = fp_to_int_round (add_fp_int (div_fp_int (t->recent_cpu, -4), PRI_MAX - t->nice * 2));
+
+  if (priority > PRI_MAX) {
+    t->priority = PRI_MAX;
+  }
+  else if (priority < PRI_MIN) {
+    t->priority = PRI_MIN;
+  } else 
+    t->priority = priority;
 }
 
 /* Calculate MLFQS recent_cpu value. 
@@ -507,7 +517,11 @@ thread_set_nice (int nice UNUSED)
     struct thread *t = thread_current();
     t->nice = nice;
     mlfqs_priority (t);
-    thread_preepmt ();
+
+    list_sort (&ready_list, compare_thread_priority, NULL);
+
+    if (t != idle_thread)
+      thread_preepmt ();
     
     intr_set_level(old_level);
 }
