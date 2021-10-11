@@ -201,15 +201,20 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  if (thread_mlfqs) 
+  {
+    sema_down (&lock->semaphore);
+    lock->holder = thread_current ();
+    
+    return;
+  }
+
   struct thread *t = thread_current ();
 
-  if (!thread_mlfqs) 
-  {
-    if (lock->holder) {
-      t->released_lock = lock;
-      list_push_back (&lock->holder->donations, &t->donation_elem);
-      donate_priority ();
-    }
+  if (lock->holder) {
+    t->released_lock = lock;
+    list_push_back (&lock->holder->donations, &t->donation_elem);
+    donate_priority ();
   }
 
   sema_down (&lock->semaphore);

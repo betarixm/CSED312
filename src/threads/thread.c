@@ -437,9 +437,8 @@ thread_get_priority (void)
 void
 mlfqs_priority (struct thread *t)
 {
-  if (t == idle_thread) 
-    return ;
-  t->priority = fp_to_int (add_fp_int (div_fp_int (t->recent_cpu, -4), PRI_MAX - t->nice * 2));
+  if (t != idle_thread) 
+    t->priority = fp_to_int_round (add_fp_int (div_fp_int (t->recent_cpu, -4), PRI_MAX - t->nice * 2));
 }
 
 /* Calculate MLFQS recent_cpu value. 
@@ -447,8 +446,7 @@ mlfqs_priority (struct thread *t)
 void
 mlfqs_recent_cpu (struct thread *t)
 {
-  if (thread_current () != idle_thread)
-    t->recent_cpu = add_fp_int (mult_fp (div_fp (mult_fp_int (load_avg, 2), add_fp_int (mult_fp_int (load_avg, 2), 1)), t->recent_cpu), t->nice);
+  t->recent_cpu = add_fp_int (mult_fp (div_fp (mult_fp_int (load_avg, 2), add_fp_int (mult_fp_int (load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
 
 /* Calculate MLFQS load_avg value.
@@ -468,8 +466,9 @@ mlfqs_load_avg (void)
 void 
 incr_recent_cpu (void)
 {
-  if (thread_current () != idle_thread) 
-    thread_current ()->recent_cpu = add_fp_int (thread_current ()->recent_cpu, 1);
+  struct thread *t = thread_current ();
+  if (t != idle_thread) 
+    t ->recent_cpu = add_fp_int (thread_current ()->recent_cpu, 1);
 }
 
 /* Recalculate and update all threads' MLFQS priority and recent_cpu. */
@@ -494,6 +493,8 @@ mlfqs_update_priority (void)
     struct thread *t = list_entry (e, struct thread, allelem);
     mlfqs_priority (t);
   }
+
+  list_sort (&ready_list, compare_thread_priority, NULL);
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -507,6 +508,7 @@ thread_set_nice (int nice UNUSED)
     t->nice = nice;
     mlfqs_priority (t);
     thread_preepmt ();
+    
     intr_set_level(old_level);
 }
 
