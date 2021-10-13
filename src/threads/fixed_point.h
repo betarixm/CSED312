@@ -1,14 +1,14 @@
-/* 
+/*
   17.14 fixed point implementation using a 32 bit signed int.
-  +---+--------------------+-------------+
-  |   |                    |             |
-  +---+--------------------+-------------+
-  31  30                   13          0
-  sign     before point     after point
-  bit
+  +---+----------- --------+------ ------+
+  |   |           ~        |      ~      |
+  +---+----------- --------+------ ------+
+  31  30                   13            0
+   sign    before point      after point
+   bit
 */
 
-/* Fixed point 1. */
+/* 1 in 17.14 format. */
 #define F (1 << 14)  
 
 
