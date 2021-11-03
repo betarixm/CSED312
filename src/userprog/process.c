@@ -18,6 +18,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "devices/timer.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -28,7 +30,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *parsed_fn;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -38,8 +40,14 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  parsed_fn = palloc_get_page (0);
+  if (parsed_fn == NULL)
+    return TID_ERROR;
+  strlcpy (parsed_fn, file_name, PGSIZE);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  pars_filename (parsed_fn);
+  tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -59,7 +67,14 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+  /* Pars arguments. */
+  char **argv = palloc_get_page(0);
+  int argc = pars_arguments(file_name, argv);
+  success = load (argv[0], &if_.eip, &if_.esp);
+  if (success)
+    init_stack_arg (argv, argc, &if_.esp);
+  palloc_free_page (argv);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -88,6 +103,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  timer_msleep (300);
   return -1;
 }
 
@@ -130,6 +146,71 @@ process_activate (void)
   /* Set thread's kernel stack for use in processing
      interrupts. */
   tss_update ();
+}
+
+int
+pars_arguments (char *cmd, char **argv)
+{
+  char *token, *save_ptr;
+
+  int argc = 0;
+
+  for (token = strtok_r (cmd, " ", &save_ptr); token != NULL;
+  token = strtok_r (NULL, " ", &save_ptr), argc++)
+  {
+    argv[argc] = token;
+  }
+
+  return argc;
+}
+
+void
+pars_filename (char *cmd)
+{
+  char *save_ptr;
+  cmd = strtok_r (cmd, " ", &save_ptr);
+}
+
+void
+init_stack_arg (char **argv, int argc, void **esp)
+{
+  /* Push ARGV[i][...] */
+  int argv_len, i, len;
+  for (i = argc - 1, argv_len = 0; i >= 0; i--)
+  {
+    len = strlen (argv[i]);
+    *esp -= len + 1;
+    argv_len += len + 1;
+    strlcpy (*esp, argv[i], len + 1);
+    argv[i] = *esp;
+  }
+
+  /* Align stack. */
+  if (argv_len % 4)
+    *esp -= 4 - (argv_len % 4);
+
+  /* Push null. */
+  *esp -= 4;
+  **(uint32_t **)esp = 0;
+
+  /* Push ARGV[i]. */
+  for(i = argc - 1; i >= 0; i--)
+  {
+    *esp -= 4;
+    **(uint32_t **)esp = argv[i];
+  }
+
+  /* Push ARGV. */
+  *esp -= 4;
+  **(uint32_t **)esp = *esp + 4;
+
+  /* Push ARGC. */
+  *esp -= 4;
+  **(uint32_t **)esp = argc;
+
+  /* Push return address. */
+  *esp -= 4;
+  **(uint32_t **)esp = 0;
 }
 
 /* We load ELF binaries.  The following definitions are taken
@@ -437,7 +518,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }
