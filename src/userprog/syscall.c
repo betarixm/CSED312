@@ -67,6 +67,8 @@ syscall_handler (struct intr_frame *f)
       f->eax = sys_remove (argv[0]);
       break;
     case SYS_OPEN:
+      get_argument (f->esp, &argv[0], 1);
+      f->eax = sys_open (argv[0]);
       break;
     case SYS_FILESIZE:
       break;
@@ -139,7 +141,21 @@ sys_remove (const char *file)
 int 
 sys_open (const char *file)
 {
+  struct file *file_;
+  struct thread *t = thread_current ();
+  int fd_count = t->pcb->fd_count;
+  
+  if (file == NULL || !validate_addr (file)) {
+    sys_exit (-1);
+  }
 
+  file_ = filesys_open (file);
+  if (file_ == NULL) 
+    return -1;
+
+  t->pcb->fd_table[t->pcb->fd_count++] = file_;
+
+  return fd_count;
 }
 
 int 

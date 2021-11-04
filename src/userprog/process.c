@@ -81,6 +81,10 @@ start_process (void *file_name_)
   if (!success) 
     thread_exit ();
 
+  thread_current ()->pcb = palloc_get_page (0);
+  thread_current ()->pcb->fd_table = palloc_get_page (PAL_ZERO);
+  thread_current ()->pcb->fd_count = 2;
+
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
