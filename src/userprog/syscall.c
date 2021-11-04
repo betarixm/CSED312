@@ -71,6 +71,8 @@ syscall_handler (struct intr_frame *f)
       f->eax = sys_open (argv[0]);
       break;
     case SYS_FILESIZE:
+      get_argument (f->esp, &argv[0], 1);
+      f->eax = sys_filesize (argv[0]);
       break;
     case SYS_READ:
       break;
@@ -161,7 +163,13 @@ sys_open (const char *file)
 int 
 sys_filesize (int fd)
 {
+  struct thread *t = thread_current ();
+  struct file *file = t->pcb->fd_table[fd];
 
+  if (file == NULL)
+    return -1;
+
+  return file_length (file);
 }
 
 int 
