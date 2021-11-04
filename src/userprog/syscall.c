@@ -59,6 +59,8 @@ syscall_handler (struct intr_frame *f)
     case SYS_WAIT:
       break;
     case SYS_CREATE:
+      get_argument (f->esp, &argv[0], 2);      
+      f->eax = sys_create ((const char *) argv[0], (const char *) argv[1]);
       break;
     case SYS_REMOVE:
       break;
@@ -115,7 +117,11 @@ sys_wait (pid_t pid)
 bool 
 sys_create (const char *file, unsigned initial_size)
 {
+  if (file == NULL || !validate_addr (file)) {
+    sys_exit (-1);
+  }
 
+  return filesys_create (file, initial_size);
 }
 
 bool 
