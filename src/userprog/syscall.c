@@ -34,7 +34,7 @@ get_argument (int *esp, int *arg, int count)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f)
 {
   if (!validate_addr (f->esp))
   {
