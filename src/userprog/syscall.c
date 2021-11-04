@@ -23,15 +23,13 @@ bool validate_addr (void *addr)
 }
 
 void 
-get_argument (void *esp, int *arg, int count)
+get_argument (int *esp, int *arg, int count)
 {
   int i;
   for (i = 0; i < count; i++)
   {
-    if (!validate_addr(esp + 4 * i))
-      sys_exit(-1);
-
-    arg[i] = *(int *)(esp + 4 * i);
+    if (!validate_addr(esp + 1 + i)) { sys_exit(-1); }
+    arg[i] = *(int32_t *)(esp + 1 + i);
   }
 }
 
@@ -51,7 +49,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     case SYS_EXIT:
-      get_argument (f->esp + 4, &argv[0], 1);
+      get_argument (f->esp, &argv[0], 1);
       sys_exit (argv[0]);
       break;
 
@@ -71,7 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     case SYS_WRITE:
-      get_argument (f->esp + 4, &argv[0], 3);
+      get_argument (f->esp, &argv[0], 3);
       if (!validate_addr ((void*) argv[1])) 
         sys_exit (-1);
 

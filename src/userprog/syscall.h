@@ -10,7 +10,7 @@ typedef int pid_t;
 
 void syscall_init (void);
 
-void get_argument (void *esp, int *arg, int count);
+void get_argument (int *esp, int *arg, int count);
 bool validate_addr (void * addr);
 
 void sys_halt (void);
