@@ -183,8 +183,7 @@ sys_read (int fd, void *buffer, unsigned size)
   int fd_count = thread_current()->pcb->fd_count;
   struct file *file = thread_current()->pcb->fd_table[fd];
 
-  printf("%d, %d\n", fd, fd_count);
-  if (file == NULL || fd < 0 || fd >= fd_count) {
+  if (file == NULL || fd < 0 || fd > fd_count) {
     sys_exit (-1);
   }
 
