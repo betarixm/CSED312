@@ -75,8 +75,9 @@ syscall_handler (struct intr_frame *f)
       f->eax = sys_filesize (argv[0]);
       break;
     case SYS_READ:
+      get_argument (f->esp, &argv[0], 3);
+      f->eax = sys_read (argv[0], argv[1], argv[2]);
       break;
-
     case SYS_WRITE:
       get_argument (f->esp, &argv[0], 3);
       if (!validate_addr ((void*) argv[1])) 
@@ -175,7 +176,19 @@ sys_filesize (int fd)
 int 
 sys_read (int fd, void *buffer, unsigned size)
 {
+  if (!validate_addr(buffer)) {
+    sys_exit (-1);
+  }
 
+  int fd_count = thread_current()->pcb->fd_count;
+  struct file *file = thread_current()->pcb->fd_table[fd];
+
+  printf("%d, %d\n", fd, fd_count);
+  if (file == NULL || fd < 0 || fd >= fd_count) {
+    sys_exit (-1);
+  }
+
+  return file_read (file, buffer, size);
 }
 
 int 
