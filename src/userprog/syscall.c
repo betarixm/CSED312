@@ -197,6 +197,15 @@ sys_write (int fd, const void *buffer, unsigned size)
   {
     putbuf(buffer, size);
     return size;
+  } else {
+    int fd_count = thread_current()->pcb->fd_count;
+    struct file *file = thread_current ()->pcb->fd_table[fd];
+
+    if (file == NULL || fd < 0 || fd > fd_count) {
+      sys_exit (-1);
+    }
+
+    return file_write (file, buffer, size);
   }
 
   return -1;
