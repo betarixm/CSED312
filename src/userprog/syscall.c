@@ -193,15 +193,18 @@ sys_read (int fd, void *buffer, unsigned size)
 int 
 sys_write (int fd, const void *buffer, unsigned size)
 {
-  if (fd == 1)
+  int fd_count = thread_current()->pcb->fd_count;
+  if (fd >= fd_count || fd < 1)
+  {
+    sys_exit (-1);
+  } else if (fd == 1)
   {
     putbuf(buffer, size);
     return size;
   } else {
-    int fd_count = thread_current()->pcb->fd_count;
     struct file *file = thread_current ()->pcb->fd_table[fd];
 
-    if (file == NULL || fd < 0 || fd > fd_count) {
+    if (file == NULL) {
       sys_exit (-1);
     }
 
