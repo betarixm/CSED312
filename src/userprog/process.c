@@ -81,10 +81,6 @@ start_process (void *file_name_)
   if (!success) 
     thread_exit ();
 
-  thread_current ()->pcb = palloc_get_page (0);
-  thread_current ()->pcb->fd_table = palloc_get_page (PAL_ZERO);
-  thread_current ()->pcb->fd_count = 2;
-
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -105,10 +101,29 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  timer_msleep (300);
-  return -1;
+  struct thread *current = thread_current ();
+  struct thread *child;
+  struct list *child_list = &(current->list_child_process);
+  struct list_elem *e;
+  for (e = list_begin (child_list); e != list_end (child_list); e = list_next (e)) {
+    child = list_entry (e, struct thread, elem_child_process);
+    if (child->tid == child_tid) {
+      break;
+    } else {
+      child = NULL;
+    }
+  }
+
+  if (child == NULL) {
+    return -1;
+  }
+
+
+  sema_down (&(child->pcb->sema_wait));
+
+  return child->pcb->exit_code;
 }
 
 /* Free the current process's resources. */
@@ -134,6 +149,10 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  cur->pcb->is_exited = true;
+  sema_up (&(cur->pcb->sema_wait));
+  list_remove (&(cur->elem_child_process));
 }
 
 /* Sets up the CPU for running user code in the current

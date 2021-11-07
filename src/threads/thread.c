@@ -198,6 +198,21 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  t->parent_process = thread_current ();
+
+  t->pcb = palloc_get_page (0);
+
+  t->pcb->fd_table = palloc_get_page (PAL_ZERO);
+  t->pcb->fd_count = 2;
+  t->pcb->exit_code = -1;
+  t->pcb->is_exited = false;
+  t->pcb->is_loaded = false;
+
+  sema_init (&(t->pcb->sema_wait), 0);
+  sema_init (&(t->pcb->sema_load), 0);
+
+  list_push_back (&(t->parent_process->list_child_process), &(t->elem_child_process));
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -467,6 +482,8 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+  list_init(&(t->list_child_process));
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -538,7 +555,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      palloc_free_page (prev);
+      // palloc_free_page (prev);
     }
 }
 

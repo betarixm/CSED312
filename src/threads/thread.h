@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -26,8 +27,15 @@ typedef int tid_t;
 
 struct pcb
   {
+    int exit_code;
+    bool is_exited;
+    bool is_loaded;
+
     struct file **fd_table;
     int fd_count;
+
+    struct semaphore sema_wait;
+    struct semaphore sema_load;
   };
 
 /* A kernel thread or user process.
@@ -103,6 +111,10 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct pcb *pcb;                    /* PCB. */
+
+    struct thread *parent_process;
+    struct list list_child_process;
+    struct list_elem elem_child_process;
 #endif
 
     /* Owned by thread.c. */

@@ -29,7 +29,7 @@ get_argument (int *esp, int *arg, int count)
   for (i = 0; i < count; i++)
   {
     if (!validate_addr(esp + 1 + i)) { sys_exit(-1); }
-    arg[i] = *(int32_t *)(esp + 1 + i);
+    arg[i] = *(esp + 1 + i);
   }
 }
 
@@ -55,8 +55,12 @@ syscall_handler (struct intr_frame *f)
       break;
 
     case SYS_EXEC:
+      get_argument (f->esp, &argv[0], 1);
+      f->eax = sys_exec (argv[0]);
       break;
     case SYS_WAIT:
+      get_argument (f->esp, &argv[0], 1);
+      f->eax = sys_wait (argv[0]);
       break;
     case SYS_CREATE:
       get_argument (f->esp, &argv[0], 2);      
@@ -105,6 +109,8 @@ void
 sys_exit (int status)
 {
   struct thread *t = thread_current ();
+  t->pcb->exit_code = status;
+
   printf ("%s: exit(%d)\n", t->name, status);
   thread_exit ();
 }
@@ -112,13 +118,13 @@ sys_exit (int status)
 pid_t 
 sys_exec (const char *cmd_line)
 {
-
+  return process_execute (cmd_line);
 }
 
 int 
 sys_wait (pid_t pid)
 {
-
+  return process_wait (pid);
 }
 
 bool 
