@@ -45,8 +45,11 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (parsed_fn, file_name, PGSIZE);
 
-  /* Create a new thread to execute FILE_NAME. */
+  /* Create a new thread to execute PARSED_FN. */
   pars_filename (parsed_fn);
+  if (filesys_open (parsed_fn) == NULL)
+    return TID_ERROR;
+
   tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
