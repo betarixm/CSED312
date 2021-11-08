@@ -245,5 +245,25 @@ sys_tell (int fd)
 void 
 sys_close (int fd)
 {
+  struct file *file;
+  struct thread *t = thread_current();
+  int i;
 
+  if (fd >= t->pcb->fd_count || fd < 2)
+  {
+    sys_exit(-1);
+  }
+  
+  file = t->pcb->fd_table[fd];
+  if (file == NULL)
+    return;
+
+  file_close(file);
+  t->pcb->fd_table[fd] = NULL;
+  for(i = fd; i < t->pcb->fd_count; i++)
+  {
+    t->pcb->fd_table[i] = t->pcb->fd_table[i + 1];
+  }
+
+  t->pcb->fd_count--;
 }
