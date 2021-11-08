@@ -233,7 +233,7 @@ sys_seek (int fd, unsigned position)
   
   file = thread_current ()->pcb->fd_table[fd];
   if (file != NULL)
-    file_seek (fd, position);
+    file_seek (file, position);
 }
 
 unsigned 
@@ -245,7 +245,7 @@ sys_tell (int fd)
   if (file == NULL)
     return -1;
     
-  return file_tell (fd);
+  return file_tell (file);
 }
 
 void 
