@@ -239,7 +239,7 @@ sys_tell (int fd)
   if (file == NULL)
     return -1;
     
-  return file_tell (fd, position);
+  return file_tell (fd);
 }
 
 void 
