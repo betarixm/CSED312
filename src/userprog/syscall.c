@@ -223,13 +223,23 @@ sys_write (int fd, const void *buffer, unsigned size)
 void 
 sys_seek (int fd, unsigned position)
 {
-
+  struct file *file;
+  
+  file = thread_current ()->pcb->fd_table[fd];
+  if (file != NULL)
+    file_seek (fd, position);
 }
 
 unsigned 
 sys_tell (int fd)
 {
-
+  struct file *file;
+  
+  file = thread_current ()->pcb->fd_table[fd];
+  if (file == NULL)
+    return -1;
+    
+  return file_tell (fd, position);
 }
 
 void 
