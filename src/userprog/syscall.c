@@ -5,13 +5,20 @@
 #include "threads/thread.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "threads/synch.h"
 
 static void syscall_handler (struct intr_frame *);
+struct semaphore rw_mutex, mutex;
+int read_count;
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  
+  sema_init (&rw_mutex, 1);
+  sema_init (&mutex, 1);
+  read_count = 0;
 }
 
 bool validate_addr (void *addr)
@@ -193,13 +200,26 @@ sys_read (int fd, void *buffer, unsigned size)
   }
 
   int fd_count = thread_current()->pcb->fd_count;
+  int bytes_read;
   struct file *file = thread_current()->pcb->fd_table[fd];
 
   if (file == NULL || fd < 0 || fd > fd_count) {
     sys_exit (-1);
   }
 
-  return file_read (file, buffer, size);
+  sema_down (&mutex);
+  read_count++;
+  if (read_count == 1) 
+    sema_down (&rw_mutex);
+  sema_up (&mutex);
+  bytes_read = file_read (file, buffer, size);
+  sema_down (&mutex);
+  read_count--;
+  if (read_count == 0)
+    sema_up (&rw_mutex);
+  sema_up (&mutex);
+
+  return bytes_read;
 }
 
 int 
@@ -214,13 +234,18 @@ sys_write (int fd, const void *buffer, unsigned size)
     putbuf(buffer, size);
     return size;
   } else {
+    int bytes_written;
     struct file *file = thread_current ()->pcb->fd_table[fd];
 
     if (file == NULL) {
       sys_exit (-1);
     }
 
-    return file_write (file, buffer, size);
+    sema_down (&rw_mutex);
+    bytes_written = file_write (file, buffer, size);
+    sema_up (&rw_mutex);
+
+    return bytes_written;
   }
 
   return -1;
