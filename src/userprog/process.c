@@ -133,6 +133,14 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  int i;
+
+  for (i = cur->pcb->fd_count - 1; i > 1; i--)
+  {
+    sys_close (i);
+  }
+
+  palloc_free_page (cur->pcb->fd_table);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
