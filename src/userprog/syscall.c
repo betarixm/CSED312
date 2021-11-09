@@ -175,6 +175,9 @@ sys_open (const char *file)
   if (file_ == NULL) 
     return -1;
 
+  if (thread_current ()->pcb->file_ex && (strcmp (thread_current ()->name, file) == 0))
+    file_deny_write (file_);
+    
   t->pcb->fd_table[t->pcb->fd_count++] = file_;
 
   return fd_count;
