@@ -126,7 +126,7 @@ sys_exit (int status)
   sema_up (&(t->pcb->sema_load));
   sema_up (&(t->pcb->sema_wait));
 
-  printf ("%d: exit(%d)\n", t->tid, status);
+  printf ("%s: exit(%d)\n", t->name, status);
   thread_exit ();
 }
 
