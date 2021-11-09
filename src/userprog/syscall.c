@@ -136,7 +136,6 @@ sys_exec (const char *cmd_line)
   pid_t pid = process_execute (cmd_line);
   struct pcb *child_pcb = get_child_pcb (pid);
   if (pid == -1 || !child_pcb->is_loaded) {
-    printf ("=======%d not loaded=======\n", pid);
     return -1;
   }
 
