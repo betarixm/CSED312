@@ -111,7 +111,7 @@ process_wait (tid_t child_tid)
   struct pcb *child_pcb = get_child_pcb (child_tid);
   int exit_code;
 
-  if (child_pcb == NULL || child_pcb->exit_code == -2)
+  if (child_pcb == NULL || child_pcb->exit_code == -2 || !child_pcb->is_loaded)
     return -1;
 
   sema_down (&(child_pcb->sema_wait));
@@ -417,6 +417,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  t->pcb->is_loaded = true;
 
  done:
   /* We arrive here whether the load is successful or not. */
