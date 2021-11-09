@@ -600,3 +600,21 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+struct pcb *
+get_child_pcb (tid_t child_tid)
+{
+  struct thread *t = thread_current ();
+  struct thread *child;
+  struct list *child_list = &(t->list_child_process);
+  struct list_elem *e;
+
+  for (e = list_begin (child_list); e != list_end (child_list); e = list_next (e)) 
+  {
+    child = list_entry (e, struct thread, elem_child_process);
+    if (child->tid == child_tid) 
+      return child->pcb;
+  }
+
+  return NULL;
+}

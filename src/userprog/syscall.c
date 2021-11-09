@@ -131,7 +131,12 @@ sys_exit (int status)
 pid_t 
 sys_exec (const char *cmd_line)
 {
-  return process_execute (cmd_line);
+  pid_t pid = process_execute (cmd_line);
+  struct pcb *child_pcb = get_child_pcb (pid);
+  if (pid != -1 && child_pcb->is_exited && child_pcb->exit_code == -1)
+    return -1;
+
+  return pid;
 }
 
 int 

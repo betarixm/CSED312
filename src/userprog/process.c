@@ -45,12 +45,13 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute PARSED_FN. */
   pars_filename (parsed_fn);
-  if (filesys_open (parsed_fn) == NULL)
-    return TID_ERROR;
 
   tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  else
+    sema_down (&(get_child_pcb (tid)->sema_load));
+    
   return tid;
 }
 
@@ -79,8 +80,11 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  sema_up (&(thread_current ()->pcb->sema_load));
+
   if (!success) 
-    thread_exit ();
+    sys_exit (-1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -161,7 +165,6 @@ process_exit (void)
 
   cur->pcb->is_exited = true;
   sema_up (&(cur->pcb->sema_wait));
-  list_remove (&(cur->elem_child_process));
 }
 
 /* Sets up the CPU for running user code in the current
