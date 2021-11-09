@@ -123,8 +123,10 @@ sys_exit (int status)
 {
   struct thread *t = thread_current ();
   t->pcb->exit_code = status;
+  sema_up (&(t->pcb->sema_load));
+  sema_up (&(t->pcb->sema_wait));
 
-  printf ("%s: exit(%d)\n", t->name, status);
+  printf ("%d: exit(%d)\n", t->tid, status);
   thread_exit ();
 }
 
@@ -133,8 +135,10 @@ sys_exec (const char *cmd_line)
 {
   pid_t pid = process_execute (cmd_line);
   struct pcb *child_pcb = get_child_pcb (pid);
-  if (pid != -1 && child_pcb->is_exited && child_pcb->exit_code == -1)
+  if (pid == -1 || !child_pcb->is_loaded) {
+    printf ("=======%d not loaded=======\n", pid);
     return -1;
+  }
 
   return pid;
 }
