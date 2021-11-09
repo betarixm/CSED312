@@ -33,6 +33,7 @@ struct pcb
 
     struct file **fd_table;
     int fd_count;
+    struct file *file_ex;
 
     struct semaphore sema_wait;
     struct semaphore sema_load;

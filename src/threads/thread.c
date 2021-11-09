@@ -204,6 +204,7 @@ thread_create (const char *name, int priority,
 
   t->pcb->fd_table = palloc_get_page (PAL_ZERO);
   t->pcb->fd_count = 2;
+  t->pcb->file_ex = NULL;
   t->pcb->exit_code = -1;
   t->pcb->is_exited = false;
   t->pcb->is_loaded = false;
