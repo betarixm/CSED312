@@ -108,27 +108,17 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  struct thread *current = thread_current ();
-  struct thread *child;
-  struct list *child_list = &(current->list_child_process);
-  struct list_elem *e;
-  for (e = list_begin (child_list); e != list_end (child_list); e = list_next (e)) {
-    child = list_entry (e, struct thread, elem_child_process);
-    if (child->tid == child_tid) {
-      break;
-    } else {
-      child = NULL;
-    }
-  }
+  struct pcb *child_pcb = get_child_pcb (child_tid);
+  int exit_code;
 
-  if (child == NULL) {
+  if (child_pcb == NULL || child_pcb->exit_code == -2)
     return -1;
-  }
 
+  sema_down (&(child_pcb->sema_wait));
+  exit_code = child_pcb->exit_code;
+  child_pcb->exit_code = -2;
 
-  sema_down (&(child->pcb->sema_wait));
-
-  return child->pcb->exit_code;
+  return exit_code;
 }
 
 /* Free the current process's resources. */
