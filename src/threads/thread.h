@@ -159,5 +159,6 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 struct pcb *get_child_pcb (tid_t child_tid);
+struct thread *get_child_thread (tid_t child_tid);
 
 #endif /* threads/thread.h */

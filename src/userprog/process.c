@@ -39,19 +39,24 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   parsed_fn = palloc_get_page (0);
-  if (parsed_fn == NULL)
+  if (parsed_fn == NULL) {
     return TID_ERROR;
+  }
+
   strlcpy (parsed_fn, file_name, PGSIZE);
 
   /* Create a new thread to execute PARSED_FN. */
   pars_filename (parsed_fn);
 
   tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR) {
     palloc_free_page (fn_copy); 
-  else
+  } else {
     sema_down (&(get_child_pcb (tid)->sema_load));
-    
+  }
+  
+  palloc_free_page (parsed_fn);
+
   return tid;
 }
 
@@ -108,15 +113,22 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid) 
 {
-  struct pcb *child_pcb = get_child_pcb (child_tid);
+  struct thread *child = get_child_thread (child_tid);
   int exit_code;
 
-  if (child_pcb == NULL || child_pcb->exit_code == -2 || !child_pcb->is_loaded)
+  if (child == NULL)
     return -1;
+  
+  if (child->pcb == NULL || child->pcb->exit_code == -2 || !child->pcb->is_loaded) {
+    return -1;
+  }
+  
+  sema_down (&(child->pcb->sema_wait));
+  exit_code = child->pcb->exit_code;
 
-  sema_down (&(child_pcb->sema_wait));
-  exit_code = child_pcb->exit_code;
-  child_pcb->exit_code = -2;
+  list_remove (&(child->elem_child_process));
+  palloc_free_page (child->pcb);
+  palloc_free_page (child);
 
   return exit_code;
 }

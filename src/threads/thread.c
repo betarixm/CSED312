@@ -202,7 +202,17 @@ thread_create (const char *name, int priority,
 
   t->pcb = palloc_get_page (0);
 
+  if (t->pcb == NULL) {
+    return TID_ERROR;
+  }
+
   t->pcb->fd_table = palloc_get_page (PAL_ZERO);
+
+  if (t->pcb->fd_table == NULL) {
+    palloc_free_page (t->pcb);
+    return TID_ERROR;
+  }
+
   t->pcb->fd_count = 2;
   t->pcb->file_ex = NULL;
   t->pcb->exit_code = -1;
@@ -614,6 +624,24 @@ get_child_pcb (tid_t child_tid)
     child = list_entry (e, struct thread, elem_child_process);
     if (child->tid == child_tid) 
       return child->pcb;
+  }
+
+  return NULL;
+}
+
+struct thread *
+get_child_thread (tid_t child_tid)
+{
+  struct thread *t = thread_current ();
+  struct thread *child;
+  struct list *child_list = &(t->list_child_process);
+  struct list_elem *e;
+
+  for (e = list_begin (child_list); e != list_end (child_list); e = list_next (e)) 
+  {
+    child = list_entry (e, struct thread, elem_child_process);
+    if (child->tid == child_tid) 
+      return child;
   }
 
   return NULL;
