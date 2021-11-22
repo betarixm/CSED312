@@ -28,7 +28,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *parsed_fn;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -38,10 +38,25 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  parsed_fn = palloc_get_page (0);
+  if (parsed_fn == NULL) {
+    return TID_ERROR;
+  }
+
+  strlcpy (parsed_fn, file_name, PGSIZE);
+
+  /* Create a new thread to execute PARSED_FN. */
+  pars_filename (parsed_fn);
+
+  tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
+  if (tid == TID_ERROR) {
     palloc_free_page (fn_copy); 
+  } else {
+    sema_down (&(get_child_pcb (tid)->sema_load));
+  }
+  
+  palloc_free_page (parsed_fn);
+
   return tid;
 }
 
@@ -59,12 +74,22 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+
+  /* Pars arguments. */
+  char **argv = palloc_get_page(0);
+  int argc = pars_arguments(file_name, argv);
+  success = load (argv[0], &if_.eip, &if_.esp);
+  if (success)
+    init_stack_arg (argv, argc, &if_.esp);
+  palloc_free_page (argv);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  sema_up (&(thread_current ()->pcb->sema_load));
+
   if (!success) 
-    thread_exit ();
+    sys_exit (-1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -86,9 +111,26 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  return -1;
+  struct thread *child = get_child_thread (child_tid);
+  int exit_code;
+
+  if (child == NULL)
+    return -1;
+  
+  if (child->pcb == NULL || child->pcb->exit_code == -2 || !child->pcb->is_loaded) {
+    return -1;
+  }
+  
+  sema_down (&(child->pcb->sema_wait));
+  exit_code = child->pcb->exit_code;
+
+  list_remove (&(child->elem_child_process));
+  palloc_free_page (child->pcb);
+  palloc_free_page (child);
+
+  return exit_code;
 }
 
 /* Free the current process's resources. */
@@ -97,6 +139,14 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  int i;
+
+  for (i = cur->pcb->fd_count - 1; i > 1; i--)
+  {
+    sys_close (i);
+  }
+
+  palloc_free_page (cur->pcb->fd_table);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -114,6 +164,9 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  cur->pcb->is_exited = true;
+  sema_up (&(cur->pcb->sema_wait));
 }
 
 /* Sets up the CPU for running user code in the current
@@ -130,6 +183,71 @@ process_activate (void)
   /* Set thread's kernel stack for use in processing
      interrupts. */
   tss_update ();
+}
+
+int
+pars_arguments (char *cmd, char **argv)
+{
+  char *token, *save_ptr;
+
+  int argc = 0;
+
+  for (token = strtok_r (cmd, " ", &save_ptr); token != NULL;
+  token = strtok_r (NULL, " ", &save_ptr), argc++)
+  {
+    argv[argc] = token;
+  }
+
+  return argc;
+}
+
+void
+pars_filename (char *cmd)
+{
+  char *save_ptr;
+  cmd = strtok_r (cmd, " ", &save_ptr);
+}
+
+void
+init_stack_arg (char **argv, int argc, void **esp)
+{
+  /* Push ARGV[i][...] */
+  int argv_len, i, len;
+  for (i = argc - 1, argv_len = 0; i >= 0; i--)
+  {
+    len = strlen (argv[i]);
+    *esp -= len + 1;
+    argv_len += len + 1;
+    strlcpy (*esp, argv[i], len + 1);
+    argv[i] = *esp;
+  }
+
+  /* Align stack. */
+  if (argv_len % 4)
+    *esp -= 4 - (argv_len % 4);
+
+  /* Push null. */
+  *esp -= 4;
+  **(uint32_t **)esp = 0;
+
+  /* Push ARGV[i]. */
+  for(i = argc - 1; i >= 0; i--)
+  {
+    *esp -= 4;
+    **(uint32_t **)esp = argv[i];
+  }
+
+  /* Push ARGV. */
+  *esp -= 4;
+  **(uint32_t **)esp = *esp + 4;
+
+  /* Push ARGC. */
+  *esp -= 4;
+  **(uint32_t **)esp = argc;
+
+  /* Push return address. */
+  *esp -= 4;
+  **(uint32_t **)esp = 0;
 }
 
 /* We load ELF binaries.  The following definitions are taken
@@ -229,6 +347,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  t->pcb->file_ex = file;
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -309,6 +429,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  t->pcb->is_loaded = true;
 
  done:
   /* We arrive here whether the load is successful or not. */
@@ -437,7 +558,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }
