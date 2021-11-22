@@ -18,8 +18,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-#include "devices/timer.h"
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -41,15 +39,24 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   parsed_fn = palloc_get_page (0);
-  if (parsed_fn == NULL)
+  if (parsed_fn == NULL) {
     return TID_ERROR;
+  }
+
   strlcpy (parsed_fn, file_name, PGSIZE);
 
-  /* Create a new thread to execute FILE_NAME. */
+  /* Create a new thread to execute PARSED_FN. */
   pars_filename (parsed_fn);
+
   tid = thread_create (parsed_fn, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR) {
     palloc_free_page (fn_copy); 
+  } else {
+    sema_down (&(get_child_pcb (tid)->sema_load));
+  }
+  
+  palloc_free_page (parsed_fn);
+
   return tid;
 }
 
@@ -78,8 +85,11 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  sema_up (&(thread_current ()->pcb->sema_load));
+
   if (!success) 
-    thread_exit ();
+    sys_exit (-1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -101,10 +111,26 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  timer_msleep (300);
-  return -1;
+  struct thread *child = get_child_thread (child_tid);
+  int exit_code;
+
+  if (child == NULL)
+    return -1;
+  
+  if (child->pcb == NULL || child->pcb->exit_code == -2 || !child->pcb->is_loaded) {
+    return -1;
+  }
+  
+  sema_down (&(child->pcb->sema_wait));
+  exit_code = child->pcb->exit_code;
+
+  list_remove (&(child->elem_child_process));
+  palloc_free_page (child->pcb);
+  palloc_free_page (child);
+
+  return exit_code;
 }
 
 /* Free the current process's resources. */
@@ -113,6 +139,14 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  int i;
+
+  for (i = cur->pcb->fd_count - 1; i > 1; i--)
+  {
+    sys_close (i);
+  }
+
+  palloc_free_page (cur->pcb->fd_table);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -130,6 +164,9 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  cur->pcb->is_exited = true;
+  sema_up (&(cur->pcb->sema_wait));
 }
 
 /* Sets up the CPU for running user code in the current
@@ -310,6 +347,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  t->pcb->file_ex = file;
+
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -390,6 +429,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  t->pcb->is_loaded = true;
 
  done:
   /* We arrive here whether the load is successful or not. */
