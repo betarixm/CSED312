@@ -29,7 +29,7 @@ void destroy_spt (struct hash *);
 void init_spte (struct hash *, void *, void *);
 void init_zero_spte (struct hash *, void *);
 void init_frame_spte (struct hash *, void *, void *);
-struct spte *init_file_spte (struct list *, void *, struct file *, off_t, uint32_t, uint32_t, bool);
+struct spte *init_file_spte (struct hash *, void *, struct file *, off_t, uint32_t, uint32_t, bool);
 bool load_page (struct hash *, void *);
 struct spte *get_spte (struct hash *, void *);
 

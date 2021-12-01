@@ -66,7 +66,7 @@ init_frame_spte (struct hash *spt, void *upage, void *kpage)
 }
 
 struct spte *
-init_file_spte (struct list *spt, void *_upage, struct file *_file, off_t _ofs, uint32_t _read_bytes, uint32_t _zero_bytes, bool _writable)
+init_file_spte (struct hash *spt, void *_upage, struct file *_file, off_t _ofs, uint32_t _read_bytes, uint32_t _zero_bytes, bool _writable)
 {
   struct spte *e;
   
@@ -84,6 +84,8 @@ init_file_spte (struct list *spt, void *_upage, struct file *_file, off_t _ofs, 
   e->status = PAGE_FILE;
   
   hash_insert (spt, &e->hash_elem);
+
+  printf ("init file spte upage : %d\n", e->upage);
   
   return e;
 }
@@ -99,9 +101,13 @@ load_page (struct hash *spt, void *upage)
   if (e == NULL)
     sys_exit (-1);
 
+  printf ("got e\n");
+
   kpage = falloc_get_page (PAL_USER, upage);
   if (kpage == NULL)
     sys_exit (-1);
+
+  printf ("got kpage\n");
 
   sema_down (&rw_mutex);
 
@@ -135,9 +141,11 @@ get_spte (struct hash *spt, void *upage)
 {
   struct spte e;
   struct hash_elem *elem;
-  
+
   e.upage = upage;
   elem = hash_find (spt, &e.hash_elem);
+
+  printf ("looking for %d\n", upage);
 
   return elem != NULL ? hash_entry (elem, struct spte, hash_elem) : NULL;
 }
