@@ -84,8 +84,6 @@ init_file_spte (struct hash *spt, void *_upage, struct file *_file, off_t _ofs, 
   e->status = PAGE_FILE;
   
   hash_insert (spt, &e->hash_elem);
-
-  printf ("init file spte upage : %d\n", e->upage);
   
   return e;
 }
@@ -101,13 +99,9 @@ load_page (struct hash *spt, void *upage)
   if (e == NULL)
     sys_exit (-1);
 
-  printf ("got e\n");
-
   kpage = falloc_get_page (PAL_USER, upage);
   if (kpage == NULL)
     sys_exit (-1);
-
-  printf ("got kpage\n");
 
   sema_down (&rw_mutex);
 
@@ -145,8 +139,6 @@ get_spte (struct hash *spt, void *upage)
   e.upage = upage;
   elem = hash_find (spt, &e.hash_elem);
 
-  printf ("looking for %d\n", upage);
-
   return elem != NULL ? hash_entry (elem, struct spte, hash_elem) : NULL;
 }
 
@@ -155,16 +147,16 @@ spt_hash_func (const struct hash_elem *elem, void *aux)
 {
   struct spte *p = hash_entry(elem, struct spte, hash_elem);
 
-  return hash_bytes (&p->kpage, sizeof (p->kpage));
+  return hash_bytes (&p->upage, sizeof (p->kpage));
 }
 
 static bool 
 spt_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux)
 {
-  void *a_kpage = hash_entry (a, struct spte, hash_elem)->kpage;
-  void *b_kpage = hash_entry (b, struct spte, hash_elem)->kpage;
+  void *a_upage = hash_entry (a, struct spte, hash_elem)->upage;
+  void *b_upage = hash_entry (b, struct spte, hash_elem)->upage;
 
-  return a_kpage < b_kpage;
+  return a_upage < b_upage;
 }
 
 static void
