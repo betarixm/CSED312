@@ -224,6 +224,8 @@ thread_create (const char *name, int priority,
 
   list_push_back (&(t->parent_process->list_child_process), &(t->elem_child_process));
 
+  init_spt (&t->spt);
+
   /* Add to run queue. */
   thread_unblock (t);
 
