@@ -61,6 +61,9 @@ init_frame_spte (struct hash *spt, void *upage, void *kpage)
   e->kpage = kpage;
   
   e->status = PAGE_FRAME;
+
+  e->file = NULL;
+  e->writable = true;
   
   hash_insert (spt, &e->hash_elem);
 }
@@ -103,18 +106,23 @@ load_page (struct hash *spt, void *upage)
   if (kpage == NULL)
     sys_exit (-1);
 
-  sema_down (&rw_mutex);
 
-  if (file_read_at (e->file, kpage, e->read_bytes, e->ofs) != e->read_bytes)
+  switch (e->status)
   {
-    falloc_free_page (kpage);
-    sema_up (&rw_mutex);
+  case PAGE_FILE:
+    if (file_read_at (e->file, kpage, e->read_bytes, e->ofs) != e->read_bytes)
+    {
+      falloc_free_page (kpage);
+      sys_exit (-1);
+    }
+    
+    memset (kpage + e->read_bytes, 0, e->zero_bytes);
+
+    break;
+
+  default:
     sys_exit (-1);
   }
-  
-  memset (kpage + e->read_bytes, 0, e->zero_bytes);
-
-  sema_up (&rw_mutex);
     
   pagedir = thread_current ()->pagedir;
 

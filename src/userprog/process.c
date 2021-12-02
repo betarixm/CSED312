@@ -544,8 +544,11 @@ setup_stack (void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE - 12;
+      if (success) 
+      {
+        init_frame_spte (&thread_current ()->spt, PHYS_BASE - PGSIZE, kpage);
+        *esp = PHYS_BASE;
+      }
       else
         falloc_free_page (kpage);
     }

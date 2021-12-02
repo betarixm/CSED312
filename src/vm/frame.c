@@ -20,7 +20,7 @@ falloc_get_page(enum palloc_flags flags, void *upage)
   kpage = palloc_get_page (flags);
   if (kpage != NULL)
   {
-    e = (struct fte *)malloc (sizeof (struct fte));
+    e = (struct fte *)malloc (sizeof *e);
     e->kpage = kpage;
     e->upage = upage;
     e->t = thread_current ();
