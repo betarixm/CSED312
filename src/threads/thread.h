@@ -40,6 +40,15 @@ struct pcb
     struct semaphore sema_load;
   };
 
+struct mmf 
+  {
+    int id;
+    struct file* file;
+    struct list_elem mmf_list_elem;
+    
+    void *upage;
+  };
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -122,6 +131,9 @@ struct thread
     struct hash spt;
     void *esp;
 
+    struct list mmf_list;
+    int mapid;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -164,5 +176,7 @@ int thread_get_load_avg (void);
 
 struct pcb *get_child_pcb (tid_t child_tid);
 struct thread *get_child_thread (tid_t child_tid);
+
+struct mmf *get_mmf (int mapid);
 
 #endif /* threads/thread.h */

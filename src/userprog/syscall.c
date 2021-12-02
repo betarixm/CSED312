@@ -6,6 +6,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "threads/synch.h"
+#include "vm/page.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 struct semaphore rw_mutex, mutex;
@@ -110,6 +112,14 @@ syscall_handler (struct intr_frame *f)
     case SYS_CLOSE:
       get_argument (f->esp, &argv[0], 1);
       sys_close (argv[0]);
+      break;
+    case SYS_MMAP:
+      get_argument (f->esp, &argv[0], 2);
+      f->eax = sys_mmap ((int) argv[0], (void *) argv[1]);
+      break;
+    case SYS_MUNMAP:
+      get_argument (f->esp, &argv[0], 1);
+      sys_munmap ((int) argv[0]);
       break;
   }
 }
@@ -310,4 +320,70 @@ sys_close (int fd)
   }
 
   t->pcb->fd_count--;
+}
+
+int 
+sys_mmap (int fd, void *addr)
+{
+  struct thread *t = thread_current ();
+  struct file *f = t->pcb->fd_table[fd];
+  struct file *opened_f;
+  struct mmf *mmf;
+
+  if (f == NULL)
+    return -1;
+  
+  if (addr == NULL || (int) addr % PGSIZE != 0)
+    return -1;
+
+  opened_f = file_reopen (f);
+  if (opened_f == NULL)
+    return -1;
+
+  mmf = init_mmf (t->mapid++, opened_f, addr);
+  if (mmf == NULL)
+    return -1;
+
+  return mmf->id;
+}
+
+int 
+sys_munmap (int mapid)
+{
+  struct thread *t = thread_current ();
+  struct list_elem *e;
+  struct mmf *mmf;
+  void *upage;
+
+  if (mapid >= t->mapid)
+    return;
+
+  for (e = list_begin (&t->mmf_list); e != list_end (&t->mmf_list); e = list_next (e))
+  {
+    mmf = list_entry (e, struct mmf, mmf_list_elem);
+    if (mmf->id == mapid)
+      break;
+  }
+  if (e == list_end (&t->mmf_list))
+    return;
+
+  upage = mmf->upage;
+
+  sema_down (&rw_mutex);
+  
+  off_t ofs;
+  for (ofs = 0; ofs < file_length (mmf->file); ofs += PGSIZE)
+  {
+    struct spte *entry = get_spte (&t->spt, upage);
+    if (pagedir_is_dirty (t->pagedir, upage))
+    {
+      void *kpage = pagedir_get_page (t->pagedir, upage);
+      file_write_at (entry->file, kpage, entry->read_bytes, entry->ofs);
+    }
+    page_delete (&t->spt, entry);
+    upage += PGSIZE;
+  }
+  list_remove(e);
+  
+  sema_up (&rw_mutex);
 }

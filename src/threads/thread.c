@@ -14,6 +14,8 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "filesys/file.h"
+#include "vm/page.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -225,6 +227,9 @@ thread_create (const char *name, int priority,
   list_push_back (&(t->parent_process->list_child_process), &(t->elem_child_process));
 
   init_spt (&t->spt);
+
+  list_init (&t->mmf_list);
+  t->mapid = 0;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -644,6 +649,52 @@ get_child_thread (tid_t child_tid)
     child = list_entry (e, struct thread, elem_child_process);
     if (child->tid == child_tid) 
       return child;
+  }
+
+  return NULL;
+}
+
+struct mmf *
+init_mmf (int id, struct file *file, void *upage)
+{
+  struct mmf *mmf = (struct mmf *) malloc (sizeof *mmf);
+  
+  mmf->id = id;
+  mmf->file = file;
+  mmf->upage = upage;
+
+  off_t ofs;
+  int size = file_length (file);
+  struct hash *spt = &thread_current ()->spt;
+
+  for (ofs = 0; ofs < size; ofs += PGSIZE)
+    if (get_spte (spt, upage + ofs))
+      return NULL;
+
+  for (ofs = 0; ofs < size; ofs += PGSIZE)
+  {
+    uint32_t read_bytes = ofs + PGSIZE < size ? PGSIZE : size - ofs;
+    init_file_spte (spt, upage, file, ofs, read_bytes, PGSIZE - read_bytes, true);
+    upage += PGSIZE;
+  }
+
+  list_push_back (&thread_current ()->mmf_list, &mmf->mmf_list_elem);
+
+  return mmf;
+}
+
+struct mmf *
+get_mmf (int mapid)
+{
+  struct list *list = &thread_current ()->mmf_list;
+  struct list_elem *e;
+
+  for (e = list_begin (list); e != list_end (list); e = list_next (e))
+  {
+    struct mmf *f = list_entry (e, struct mmf, mmf_list_elem);
+
+    if (f->id == mapid)
+      return f;
   }
 
   return NULL;

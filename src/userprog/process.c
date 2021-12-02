@@ -142,6 +142,9 @@ process_exit (void)
   uint32_t *pd;
   int i;
 
+  for (i = 0; i < cur->mapid; i++)
+    sys_munmap (i);
+  
   destroy_spt (&cur->spt);
 
   file_close (cur->pcb->file_ex);

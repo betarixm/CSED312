@@ -183,3 +183,10 @@ page_destutcor (struct hash_elem *elem, void *aux)
 
   free(e);
 }
+
+void 
+page_delete (struct hash *spt, struct spte *entry)
+{
+  hash_delete (spt, &entry->hash_elem);
+  free (entry);
+}
