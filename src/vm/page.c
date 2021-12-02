@@ -2,6 +2,7 @@
 #include "threads/thread.h"
 #include "vm/frame.h"
 #include <string.h>
+#include "threads/vaddr.h"
 
 static hash_hash_func spt_hash_func;
 static hash_less_func spt_less_func;
@@ -109,6 +110,10 @@ load_page (struct hash *spt, void *upage)
 
   switch (e->status)
   {
+  case PAGE_ZERO:
+    memset (kpage, 0, PGSIZE);
+    break;
+
   case PAGE_FILE:
     if (file_read_at (e->file, kpage, e->read_bytes, e->ofs) != e->read_bytes)
     {

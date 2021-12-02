@@ -48,6 +48,8 @@ syscall_handler (struct intr_frame *f)
     sys_exit (-1);
   }
   
+  thread_current()->esp = f->esp;
+  
   int argv[3];
 
   switch (*(int *)f->esp)
