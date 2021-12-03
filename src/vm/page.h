@@ -22,6 +22,7 @@ struct spte
     off_t ofs;  // File off set.
     uint32_t read_bytes, zero_bytes;  // Bytes to read or to set to zero.
     bool writable;  // whether the page is writable.
+    int swap_id;
   };
 
 void init_spt (struct hash *);
