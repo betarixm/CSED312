@@ -38,9 +38,12 @@ falloc_free_page (void *kpage)
   e = get_fte (kpage);
   if (e == NULL)
     sys_exit (-1);
+
   list_remove (&e->list_elem);
-  palloc_free_page (e);
+  palloc_free_page (e->kpage);
   pagedir_clear_page (e->t->pagedir, e->upage);
+  free (e);
+
   lock_release (&frame_lock);
 }
 
