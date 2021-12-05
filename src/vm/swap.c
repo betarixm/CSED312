@@ -1,7 +1,4 @@
 #include "vm/swap.h"
-#include "devices/block.h"
-#include "threads/vaddr.h"
-#include "vm/page.h"
 
 #define SECTOR_NUM (PGSIZE / BLOCK_SECTOR_SIZE)
 
