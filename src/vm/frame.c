@@ -28,9 +28,11 @@ falloc_get_page(enum palloc_flags flags, void *upage)
     e->upage = upage;
     e->t = thread_current ();
     list_push_back (&frame_table, &e->list_elem);
-
+  } else {
+    // TODO: Check empty page. (i.e. does upage used?)
     evict_page();
   }
+
   lock_release (&frame_lock);
   return kpage;
 }
