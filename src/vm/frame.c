@@ -28,7 +28,8 @@ falloc_get_page(enum palloc_flags flags, void *upage)
     e->upage = upage;
     e->t = thread_current ();
     list_push_back (&frame_table, &e->list_elem);
-    // evict_page();
+
+    evict_page();
   }
   lock_release (&frame_lock);
   return kpage;
@@ -62,6 +63,8 @@ get_fte (void* kpage)
 }
 
 void evict_page() {
+  ASSERT(lock_held_by_current_thread(&frame_lock));
+
   struct fte *e = clock_cursor;
 
   /* BEGIN: Find page to evict */
@@ -82,7 +85,7 @@ void evict_page() {
 
   swap_out(e->kpage);
 
-  lock_release(&frame_lock);
-  falloc_free_page(e->kpage);
-
+  lock_release(&frame_lock); {
+    falloc_free_page(e->kpage);
+  } lock_acquire(&frame_lock);
 }
