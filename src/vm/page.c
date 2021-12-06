@@ -114,7 +114,10 @@ load_page (struct hash *spt, void *upage)
   case PAGE_ZERO:
     memset (kpage, 0, PGSIZE);
     break;
-
+  case PAGE_SWAP:
+    swap_in(e, kpage);
+  
+    break;
   case PAGE_FILE:
     if (!was_holding_lock)
       lock_acquire (&file_lock);
@@ -185,8 +188,6 @@ page_destutcor (struct hash_elem *elem, void *aux)
   struct spte *e;
 
   e = hash_entry (elem, struct spte, hash_elem);
-
-  // TODO take care dirty
 
   free(e);
 }

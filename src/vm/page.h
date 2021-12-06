@@ -8,6 +8,7 @@
 #define PAGE_ZERO 0
 #define PAGE_FRAME 1
 #define PAGE_FILE 2
+#define PAGE_SWAP 3
 
 struct spte
   {
@@ -22,6 +23,7 @@ struct spte
     off_t ofs;  // File off set.
     uint32_t read_bytes, zero_bytes;  // Bytes to read or to set to zero.
     bool writable;  // whether the page is writable.
+    int swap_id;
   };
 
 void init_spt (struct hash *);

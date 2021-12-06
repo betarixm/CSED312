@@ -5,6 +5,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "vm/page.h"
+#include "vm/swap.h"
+#include "threads/palloc.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -131,6 +133,9 @@ page_fault (struct intr_frame *f)
   void *upage;
   void *esp;
   struct hash *spt;
+  struct spte *spe;
+  
+  void *kpage;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -159,14 +164,30 @@ page_fault (struct intr_frame *f)
     sys_exit (-1);
 
   spt = &thread_current()->spt;
+  spe = get_spte(spt, upage);
 
   esp = user ? f->esp : thread_current()->esp;
-  if (esp - 32 <= fault_addr && PHYS_BASE - MAX_STACK_SIZE <= fault_addr)
-    if (!get_spte(spt, upage))
+  if (esp - 32 <= fault_addr && PHYS_BASE - MAX_STACK_SIZE <= fault_addr) {
+    if (!get_spte(spt, upage)) {
       init_zero_spte (spt, upage);
+    }
+  }
+  
+  /*
+  TODO: How can we decide when to swap_in?
+  else if (spe->status == PAGE_FRAME) {
+     kpage = falloc_get_page(PAL_USER); // TODO: Handling when NULL
+     swap_in(spe, kpage);
+     pagedir_set_page(thread_current()->pagedir, upage, kpage, spe->writable); // TODO: Handling when failed
 
-  if (load_page (spt, upage))
-    return;
+     intr_enable ();
+     return;
+  } 
+  */
+
+  if (load_page (spt, upage)) {
+     return;
+  }
 
   sys_exit (-1);
 
