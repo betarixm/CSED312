@@ -34,7 +34,7 @@ void swap_in(struct spte *page, void *kva)
             sys_exit(-1);
         }
 
-        bitmap_set(swap_valid_table, id, false);
+        bitmap_set(swap_valid_table, id, true);
     }
 
     lock_release(&swap_lock);
