@@ -21,17 +21,19 @@ falloc_get_page(enum palloc_flags flags, void *upage)
   void *kpage;
   lock_acquire (&frame_lock);
   kpage = palloc_get_page (flags);
-  if (kpage != NULL)
+  if (kpage == NULL)
   {
-    e = (struct fte *)malloc (sizeof *e);
-    e->kpage = kpage;
-    e->upage = upage;
-    e->t = thread_current ();
-    list_push_back (&frame_table, &e->list_elem);
-  } else {
-    // TODO: Check empty page. (i.e. does upage used?)
     evict_page();
+    kpage = palloc_get_page (flags);
+    if (kpage == NULL)
+      return NULL;
   }
+  
+  e = (struct fte *)malloc (sizeof *e);
+  e->kpage = kpage;
+  e->upage = upage;
+  e->t = thread_current ();
+  list_push_back (&frame_table, &e->list_elem);
 
   lock_release (&frame_lock);
   return kpage;

@@ -116,7 +116,7 @@ load_page (struct hash *spt, void *upage)
     break;
   case PAGE_SWAP:
     swap_in(e, kpage);
-    pagedir_set_page(thread_current()->pagedir, upage, kpage, e->writable); // TODO: Handling when failed
+  
     break;
   case PAGE_FILE:
     if (!was_holding_lock)
@@ -188,8 +188,6 @@ page_destutcor (struct hash_elem *elem, void *aux)
   struct spte *e;
 
   e = hash_entry (elem, struct spte, hash_elem);
-
-  // TODO take care dirty
 
   free(e);
 }
