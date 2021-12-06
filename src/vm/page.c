@@ -114,7 +114,10 @@ load_page (struct hash *spt, void *upage)
   case PAGE_ZERO:
     memset (kpage, 0, PGSIZE);
     break;
-
+  case PAGE_SWAP:
+    swap_in(e, kpage);
+    pagedir_set_page(thread_current()->pagedir, upage, kpage, e->writable); // TODO: Handling when failed
+    break;
   case PAGE_FILE:
     if (!was_holding_lock)
       lock_acquire (&file_lock);

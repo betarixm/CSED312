@@ -68,6 +68,7 @@ void evict_page() {
   ASSERT(lock_held_by_current_thread(&frame_lock));
 
   struct fte *e = clock_cursor;
+  struct spte *s;
 
   /* BEGIN: Find page to evict */
   while (true) {
@@ -85,7 +86,9 @@ void evict_page() {
   }
   /*  END : Find page to evict */
 
-  swap_out(e->kpage);
+  s = get_spte(&thread_current()->spt, e->upage);
+  s->status = PAGE_SWAP;
+  s->swap_id = swap_out(e->kpage);
 
   lock_release(&frame_lock); {
     falloc_free_page(e->kpage);

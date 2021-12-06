@@ -8,6 +8,7 @@
 #define PAGE_ZERO 0
 #define PAGE_FRAME 1
 #define PAGE_FILE 2
+#define PAGE_SWAP 3
 
 struct spte
   {
