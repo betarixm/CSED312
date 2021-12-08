@@ -73,19 +73,17 @@ void evict_page() {
   struct spte *s;
 
   /* BEGIN: Find page to evict */
-  while (true) {
+  do {
+    if (e != NULL) {
+      pagedir_set_accessed(e->t->pagedir, e->upage, false);
+    }
+
     if (clock_cursor == NULL || list_next(&clock_cursor->list_elem) == list_end(&frame_table)) {
       e = list_entry(list_begin(&frame_table), struct fte, list_elem);
     } else {
       e = list_next (e);
     }
-
-    if(!pagedir_is_accessed(e->t->pagedir, e->upage)) {
-      break;
-    }
-
-    pagedir_set_accessed(e->t->pagedir, e->upage, false);
-  }
+  } while (!pagedir_is_accessed(e->t->pagedir, e->upage));
   /*  END : Find page to evict */
 
   s = get_spte(&thread_current()->spt, e->upage);

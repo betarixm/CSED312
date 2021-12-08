@@ -172,18 +172,6 @@ page_fault (struct intr_frame *f)
       init_zero_spte (spt, upage);
     }
   }
-  
-  /*
-  TODO: How can we decide when to swap_in?
-  else if (spe->status == PAGE_FRAME) {
-     kpage = falloc_get_page(PAL_USER); // TODO: Handling when NULL
-     swap_in(spe, kpage);
-     pagedir_set_page(thread_current()->pagedir, upage, kpage, spe->writable); // TODO: Handling when failed
-
-     intr_enable ();
-     return;
-  } 
-  */
 
   if (load_page (spt, upage)) {
      return;
