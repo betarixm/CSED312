@@ -15,6 +15,8 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+#include "filesys/file.h"
+#include "vm/page.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -225,6 +227,37 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+
+  t->parent_process = thread_current ();
+
+  t->pcb = palloc_get_page (0);
+
+  if (t->pcb == NULL) {
+    return TID_ERROR;
+  }
+
+  t->pcb->fd_table = palloc_get_page (PAL_ZERO);
+
+  if (t->pcb->fd_table == NULL) {
+    palloc_free_page (t->pcb);
+    return TID_ERROR;
+  }
+
+  t->pcb->fd_count = 2;
+  t->pcb->file_ex = NULL;
+  t->pcb->exit_code = -1;
+  t->pcb->is_exited = false;
+  t->pcb->is_loaded = false;
+
+  sema_init (&(t->pcb->sema_wait), 0);
+  sema_init (&(t->pcb->sema_load), 0);
+
+  list_push_back (&(t->parent_process->list_child_process), &(t->elem_child_process));
+
+  init_spt (&t->spt);
+
+  list_init (&t->mmf_list);
+  t->mapid = 0;
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -667,6 +700,8 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+  list_init(&(t->list_child_process));
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -738,7 +773,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      palloc_free_page (prev);
+      // palloc_free_page (prev);
     }
 }
 
@@ -826,3 +861,85 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+struct pcb *
+get_child_pcb (tid_t child_tid)
+{
+  struct thread *t = thread_current ();
+  struct thread *child;
+  struct list *child_list = &(t->list_child_process);
+  struct list_elem *e;
+
+  for (e = list_begin (child_list); e != list_end (child_list); e = list_next (e)) 
+  {
+    child = list_entry (e, struct thread, elem_child_process);
+    if (child->tid == child_tid) 
+      return child->pcb;
+  }
+
+  return NULL;
+}
+
+struct thread *
+get_child_thread (tid_t child_tid)
+{
+  struct thread *t = thread_current ();
+  struct thread *child;
+  struct list *child_list = &(t->list_child_process);
+  struct list_elem *e;
+
+  for (e = list_begin (child_list); e != list_end (child_list); e = list_next (e)) 
+  {
+    child = list_entry (e, struct thread, elem_child_process);
+    if (child->tid == child_tid) 
+      return child;
+  }
+
+  return NULL;
+}
+
+struct mmf *
+init_mmf (int id, struct file *file, void *upage)
+{
+  struct mmf *mmf = (struct mmf *) malloc (sizeof *mmf);
+  
+  mmf->id = id;
+  mmf->file = file;
+  mmf->upage = upage;
+
+  off_t ofs;
+  int size = file_length (file);
+  struct hash *spt = &thread_current ()->spt;
+
+  for (ofs = 0; ofs < size; ofs += PGSIZE)
+    if (get_spte (spt, upage + ofs))
+      return NULL;
+
+  for (ofs = 0; ofs < size; ofs += PGSIZE)
+  {
+    uint32_t read_bytes = ofs + PGSIZE < size ? PGSIZE : size - ofs;
+    init_file_spte (spt, upage, file, ofs, read_bytes, PGSIZE - read_bytes, true);
+    upage += PGSIZE;
+  }
+
+  list_push_back (&thread_current ()->mmf_list, &mmf->mmf_list_elem);
+
+  return mmf;
+}
+
+struct mmf *
+get_mmf (int mapid)
+{
+  struct list *list = &thread_current ()->mmf_list;
+  struct list_elem *e;
+
+  for (e = list_begin (list); e != list_end (list); e = list_next (e))
+  {
+    struct mmf *f = list_entry (e, struct mmf, mmf_list_elem);
+
+    if (f->id == mapid)
+      return f;
+  }
+
+  return NULL;
+}
